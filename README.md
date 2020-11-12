@@ -1,26 +1,19 @@
 # nvidia_smi_exporter
 
-Create a GUID
-https://www.guidgenerator.com/online-guid-generator.aspx
+nvidia-smi metrics exporter for Prometheus
 
-## Build
+## Run
 ```
 > go run -ldflags "-X main.version=1.0.0" .
 ```
 
-nvidia-smi metrics exporter for Prometheus
 
 ## Build
 ```
-> go build -v nvidia_smi_exporter
+> go build -ldflags "-X main.version=1.0.0" .
 ```
 
-## Run
-```
-> ./nvidia_smi_exporter [<port>]
-```
 Default port is 9101
-
 
 ### localhost:9101/metrics
 ```
@@ -63,3 +56,6 @@ nvidia-smi --query-gpu=name,index,temperature.gpu,utilization.gpu,utilization.me
   - targets: ['localhost:9101']
 ```
 
+
+Create a GUID
+https://www.guidgenerator.com/online-guid-generator.aspx
