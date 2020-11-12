@@ -3,6 +3,11 @@
 Create a GUID
 https://www.guidgenerator.com/online-guid-generator.aspx
 
+## Build
+```
+> go run -ldflags "-X main.version=1.0.0" .
+```
+
 nvidia-smi metrics exporter for Prometheus
 
 ## Build
