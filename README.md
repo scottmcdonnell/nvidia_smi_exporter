@@ -1,5 +1,8 @@
 # nvidia_smi_exporter
 
+Create a GUID
+https://www.guidgenerator.com/online-guid-generator.aspx
+
 nvidia-smi metrics exporter for Prometheus
 
 ## Build

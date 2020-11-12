@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi"
+     xmlns:fw="http://schemas.microsoft.com/wix/FirewallExtension"
+     xmlns:util="http://schemas.microsoft.com/wix/UtilExtension">
+  <?if $(sys.BUILDARCH)=x64 ?>
+    <?define PlatformProgramFiles = "ProgramFiles64Folder" ?>
+  <?else ?>
+    <?define PlatformProgramFiles = "ProgramFilesFolder" ?>
+  <?endif ?>
+
+  <Product Id="*" UpgradeCode="702e1894-0110-4f1e-80c1-8e587e4cb51e"
+           Name="nvidia_smi_exporter" Version="$(var.Version)" Manufacturer="jam_media"
+           Language="1033" Codepage="1252">
+    <Package Id="*" Manufacturer="jam_media" InstallScope="perMachine"
+             Description="nvidia_smi_exporter $(var.Version) installer" Compressed="yes" />
+    <Media Id="1" Cabinet="nvidia_smi_exporter.cab" EmbedCab="yes"/>
+    <MajorUpgrade Schedule="afterInstallExecute" DowngradeErrorMessage="A later version of [ProductName] is already installed. Setup will now exit." />
+
+    <Property Id="LISTEN_ADDR" Secure="yes" />
+    <Property Id="LISTEN_PORT" Secure="yes" Value="9101" />
+    <SetProperty Id="ListenFlag" After="InstallFiles" Sequence="execute" Value="--telemetry.addr [LISTEN_ADDR]:[LISTEN_PORT]">LISTEN_ADDR OR LISTEN_PORT</SetProperty>
+
+    <Property Id="METRICS_PATH" Secure="yes"/>
+    <SetProperty Id="MetricsPathFlag" After="InstallFiles" Sequence="execute" Value="--telemetry.path [METRICS_PATH]">METRICS_PATH</SetProperty>
+
+    <Directory Id="TARGETDIR" Name="SourceDir">
+      <Directory Id="$(var.PlatformProgramFiles)">
+        <Directory Id="APPLICATIONROOTDIRECTORY" Name="nvidia_smi_exporter"/>
+      </Directory>
+    </Directory>
+
+    <ComponentGroup Id="Files">
+      <Component Directory="APPLICATIONROOTDIRECTORY">
+        <File Id="nvidia_smi_exporter.exe" Name="nvidia_smi_exporter.exe" Source="Work\nvidia_smi_exporter.exe" KeyPath="yes">
+          <fw:FirewallException Id="MetricsEndpoint" Name="nvidia_smi_exporter (HTTP [LISTEN_PORT])" Description="nvidia_smi_exporter HTTP endpoint" Port="[LISTEN_PORT]" Protocol="tcp" Scope="any" IgnoreFailure="yes" />
+        </File>
+        <ServiceInstall Id="InstallExporterService" Name="nvidia_smi_exporter" DisplayName="nvidia_smi_exporter" Description="Exports Prometheus metrics from NVIDIA SMI queries" ErrorControl="normal" Start="auto" Type="ownProcess" Arguments="--log.format logger:eventlog?name=nvidia_smi_exporter [CollectorsFlag] [ListenFlag] [MetricsPathFlag] [TextfileDirFlag] [ExtraFlags]">
+          <util:ServiceConfig FirstFailureActionType="restart" SecondFailureActionType="restart" ThirdFailureActionType="restart" RestartServiceDelayInSeconds="5" />
+        </ServiceInstall>
+        <ServiceControl Id="ServiceStateControl" Name="nvidia_smi_exporter" Remove="uninstall" Start="install" Stop="both" />
+        <util:EventSource Log="Application" Name="nvidia_smi_exporter" EventMessageFile="%SystemRoot%\System32\EventCreate.exe" />
+      </Component>
+    </ComponentGroup>
+    <Feature Id="DefaultFeature" Level="1">
+      <ComponentGroupRef Id="Files" />
+    </Feature>
+  </Product>
+</Wix>
