@@ -1,3 +1,4 @@
 nvidia_smi_exporter
 sample.csv
 *.exe
+bin/

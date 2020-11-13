@@ -5,6 +5,9 @@ This exporter used the [nvidia-smi](https://developer.nvidia.com/nvidia-system-m
 
 This project is a mixture of [phstudy/nvidia_smi_exporter](https://github.com/phstudy/nvidia_smi_exporter) and [zhebrak/nvidia_smi_exporter](https://github.com/zhebrak/nvidia_smi_exporter) with a windows service added. 
 
+## Todos
+ - Crossplatform so that Windows only service elements are only built on Windows.
+ - Tests.
 
 # Building and Running
 Prerequisites:
@@ -30,14 +33,12 @@ Default port is 9201
 # Application Flags
 Exporter accepts flags to configure certain behaviours. The ones configuring the global behaviour of the exporter are listed below.
 
-| Flag               | Description                             | Default Value |
-|--------------------|-----------------------------------------|---------------
-|
-| `telemetry.addr`   | host:port for exporter.                 | `:9202`       |
-| `--telemetry.path` | URL Path under which to expose metrics. | `/metrics`    |
-| `--help`           | Show context-sensitive help.            |               |
+| Flag | Description | Default Value 
+|------|-------------|--------------
+| `telemetry.addr`   | host:port for exporter.                 | `:9202` 
+| `--telemetry.path` | URL Path under which to expose metrics. | `/metrics` 
+| `--help`           | Show context-sensitive help.            |           
 | `--version`        | Show application version.               |    
-|           
 
 # Service
 
@@ -45,7 +46,7 @@ Build the service for Windows:
 
     build.bat
 
-This creates an .msi installer in the folder `windows_installer/Output`
+This creates an .msi installer in the folder `bin`
 
 The installer will setup the nvidia_smi_exporter as a Windows service, as well as create an exception in the Windows Firewall.
 
@@ -77,6 +78,19 @@ msiexec /i <path-to-msi-file> LISTEN_PORT="5000"
   - targets: ['localhost:9202']
 ```
 
+# Boilerplate
 
-Create a GUID
-https://www.guidgenerator.com/online-guid-generator.aspx
+This project serves as a boilerplate for a commandline prometheus exporter.
+
+To implement a new exporter `main.go` can stay as is. `metrics.go` can be updated with the new constants and metrics.
+
+Installer build can be updated by editing the variables in `build.bat`
+
+## GUID
+A new GUID will be needed in the `windows_installer\exporter.wxs` for the `UpgradeCode` - this unique id identifies the project so the version can be checked on install. 
+
+    <Product Id="*" UpgradeCode="702e1894-0110-4f1e-80c1-8e587e4cb51e"
+           Name="$(var.AppName)" Version="$(var.Version)" Manufacturer="my_company"
+           Language="1033" Codepage="1252">
+
+A new GUID can be created for a new project using [online-guid-generator](https://www.guidgenerator.com/online-guid-generator.aspx)

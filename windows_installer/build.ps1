@@ -1,7 +1,9 @@
 [CmdletBinding()]
 Param (
     [Parameter(Mandatory = $true)]
-    [String] $PathToExecutable,
+    [String] $AppName,
+    [Parameter(Mandatory = $true)]
+    [String] $BinDirectory,
     [Parameter(Mandatory = $true)]
     [String] $Version,
     [Parameter(Mandatory = $false)]
@@ -11,7 +13,7 @@ Param (
 $ErrorActionPreference = "Stop"
 
 # Get absolute path to executable before switching directories
-$PathToExecutable = Resolve-Path $PathToExecutable
+$PathToExecutable = Resolve-Path "${BinDirectory}\${AppName}.exe"
 # Set working dir to this directory, reset previous on exit
 Push-Location $PSScriptRoot
 Trap {
@@ -40,7 +42,7 @@ function Get-FileIfNotExists {
 }
 
 $sourceDir = mkdir -Force Source
-mkdir -Force Work, Output | Out-Null
+mkdir -Force Work | Out-Null
 
 Write-Verbose "Downloading WiX..."
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
@@ -48,13 +50,13 @@ Get-FileIfNotExists "https://github.com/wixtoolset/wix3/releases/download/wix311
 mkdir -Force WiX | Out-Null
 Expand-Archive -Path "${sourceDir}\wix-binaries.zip" -DestinationPath WiX -Force
 
-Copy-Item -Force $PathToExecutable Work/nvidia_smi_exporter.exe
+Copy-Item -Force $PathToExecutable Work/${AppName}.exe
 
-Write-Verbose "Creating nvidia_smi_exporter-${Version}-${Arch}.msi"
+Write-Verbose "Creating ${AppName}-${Version}-${Arch}.msi"
 $wixArch = @{"amd64" = "x64"; "386" = "x86"}[$Arch]
 $wixOpts = "-ext WixFirewallExtension -ext WixUtilExtension"
-Invoke-Expression "WiX\candle.exe -nologo -arch $wixArch $wixOpts -out Work\nvidia_smi_exporter.wixobj -dVersion=`"$Version`" nvidia_smi_exporter.wxs"
-Invoke-Expression "WiX\light.exe -nologo -spdb $wixOpts -out `"Output\nvidia_smi_exporter-${Version}-${Arch}.msi`" Work\nvidia_smi_exporter.wixobj"
+Invoke-Expression "WiX\candle.exe -nologo -arch $wixArch $wixOpts -out Work\${AppName}.wixobj -dAppName=`"$AppName`"  -dVersion=`"$Version`" exporter.wxs"
+Invoke-Expression "WiX\light.exe -nologo -spdb $wixOpts -out `"${BinDirectory}\${AppName}-${Version}-${Arch}.msi`" Work\${AppName}.wixobj"
 
 Write-Verbose "Done!"
 Pop-Location

@@ -9,11 +9,11 @@
   <?endif ?>
 
   <Product Id="*" UpgradeCode="702e1894-0110-4f1e-80c1-8e587e4cb51e"
-           Name="nvidia_smi_exporter" Version="$(var.Version)" Manufacturer="jam_media"
+           Name="$(var.AppName)" Version="$(var.Version)" Manufacturer="jam_media"
            Language="1033" Codepage="1252">
     <Package Id="*" Manufacturer="jam_media" InstallScope="perMachine"
-             Description="nvidia_smi_exporter $(var.Version) installer" Compressed="yes" />
-    <Media Id="1" Cabinet="nvidia_smi_exporter.cab" EmbedCab="yes"/>
+             Description="$(var.AppName) $(var.Version) installer" Compressed="yes" />
+    <Media Id="1" Cabinet="$(var.AppName).cab" EmbedCab="yes"/>
     <MajorUpgrade Schedule="afterInstallExecute" DowngradeErrorMessage="A later version of [ProductName] is already installed. Setup will now exit." />
 
     <Property Id="LISTEN_ADDR" Secure="yes" />
@@ -25,20 +25,20 @@
 
     <Directory Id="TARGETDIR" Name="SourceDir">
       <Directory Id="$(var.PlatformProgramFiles)">
-        <Directory Id="APPLICATIONROOTDIRECTORY" Name="nvidia_smi_exporter"/>
+        <Directory Id="APPLICATIONROOTDIRECTORY" Name="$(var.AppName)"/>
       </Directory>
     </Directory>
 
     <ComponentGroup Id="Files">
       <Component Directory="APPLICATIONROOTDIRECTORY">
-        <File Id="nvidia_smi_exporter.exe" Name="nvidia_smi_exporter.exe" Source="Work\nvidia_smi_exporter.exe" KeyPath="yes">
-          <fw:FirewallException Id="MetricsEndpoint" Name="nvidia_smi_exporter (HTTP [LISTEN_PORT])" Description="nvidia_smi_exporter HTTP endpoint" Port="[LISTEN_PORT]" Protocol="tcp" Scope="any" IgnoreFailure="yes" />
+        <File Id="$(var.AppName).exe" Name="$(var.AppName).exe" Source="Work\$(var.AppName).exe" KeyPath="yes">
+          <fw:FirewallException Id="MetricsEndpoint" Name="$(var.AppName) (HTTP [LISTEN_PORT])" Description="$(var.AppName) HTTP endpoint" Port="[LISTEN_PORT]" Protocol="tcp" Scope="any" IgnoreFailure="yes" />
         </File>
-        <ServiceInstall Id="InstallExporterService" Name="nvidia_smi_exporter" DisplayName="nvidia_smi_exporter" Description="Exports Prometheus metrics from NVIDIA SMI queries" ErrorControl="normal" Start="auto" Type="ownProcess" Arguments="--log.format logger:eventlog?name=nvidia_smi_exporter [CollectorsFlag] [ListenFlag] [MetricsPathFlag] [TextfileDirFlag] [ExtraFlags]">
+        <ServiceInstall Id="InstallExporterService" Name="$(var.AppName)" DisplayName="$(var.AppName)" Description="Exports Prometheus metrics from NVIDIA SMI queries" ErrorControl="normal" Start="auto" Type="ownProcess" Arguments="--log.format logger:eventlog?name=$(var.AppName) [ListenFlag] [MetricsPathFlag]">
           <util:ServiceConfig FirstFailureActionType="restart" SecondFailureActionType="restart" ThirdFailureActionType="restart" RestartServiceDelayInSeconds="5" />
         </ServiceInstall>
-        <ServiceControl Id="ServiceStateControl" Name="nvidia_smi_exporter" Remove="uninstall" Start="install" Stop="both" />
-        <util:EventSource Log="Application" Name="nvidia_smi_exporter" EventMessageFile="%SystemRoot%\System32\EventCreate.exe" />
+        <ServiceControl Id="ServiceStateControl" Name="$(var.AppName)" Remove="uninstall" Start="install" Stop="both" />
+        <util:EventSource Log="Application" Name="$(var.AppName)" EventMessageFile="%SystemRoot%\System32\EventCreate.exe" />
       </Component>
     </ComponentGroup>
     <Feature Id="DefaultFeature" Level="1">
