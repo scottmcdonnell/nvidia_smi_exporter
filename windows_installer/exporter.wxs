@@ -9,7 +9,7 @@
   <?endif ?>
 
   <Product Id="*" UpgradeCode="702e1894-0110-4f1e-80c1-8e587e4cb51e"
-           Name="$(var.AppName)" Version="$(var.Version)" Manufacturer="jam_media"
+           Name="$(var.AppName)" Version="$(var.Version)" Manufacturer="JAM Media"
            Language="1033" Codepage="1252">
     <Package Id="*" Manufacturer="jam_media" InstallScope="perMachine"
              Description="$(var.AppName) $(var.Version) installer" Compressed="yes" />
@@ -17,7 +17,7 @@
     <MajorUpgrade Schedule="afterInstallExecute" DowngradeErrorMessage="A later version of [ProductName] is already installed. Setup will now exit." />
 
     <Property Id="LISTEN_ADDR" Secure="yes" />
-    <Property Id="LISTEN_PORT" Secure="yes" Value="9101" />
+    <Property Id="LISTEN_PORT" Secure="yes" Value="$(var.DefaultPort)" />
     <SetProperty Id="ListenFlag" After="InstallFiles" Sequence="execute" Value="--telemetry.addr [LISTEN_ADDR]:[LISTEN_PORT]">LISTEN_ADDR OR LISTEN_PORT</SetProperty>
 
     <Property Id="METRICS_PATH" Secure="yes"/>

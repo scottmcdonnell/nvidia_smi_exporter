@@ -5,6 +5,8 @@ Param (
     [Parameter(Mandatory = $true)]
     [String] $BinDirectory,
     [Parameter(Mandatory = $true)]
+    [String] $DefaultPort,
+    [Parameter(Mandatory = $true)]
     [String] $Version,
     [Parameter(Mandatory = $false)]
     [ValidateSet("amd64", "386")]
@@ -55,7 +57,7 @@ Copy-Item -Force $PathToExecutable Work/${AppName}.exe
 Write-Verbose "Creating ${AppName}-${Version}-${Arch}.msi"
 $wixArch = @{"amd64" = "x64"; "386" = "x86"}[$Arch]
 $wixOpts = "-ext WixFirewallExtension -ext WixUtilExtension"
-Invoke-Expression "WiX\candle.exe -nologo -arch $wixArch $wixOpts -out Work\${AppName}.wixobj -dAppName=`"$AppName`"  -dVersion=`"$Version`" exporter.wxs"
+Invoke-Expression "WiX\candle.exe -nologo -arch $wixArch $wixOpts -out Work\${AppName}.wixobj -dAppName=`"$AppName`"  -dVersion=`"$Version`" -dDefaultPort=`"$DefaultPort`" exporter.wxs"
 Invoke-Expression "WiX\light.exe -nologo -spdb $wixOpts -out `"${BinDirectory}\${AppName}-${Version}-${Arch}.msi`" Work\${AppName}.wixobj"
 
 Write-Verbose "Done!"

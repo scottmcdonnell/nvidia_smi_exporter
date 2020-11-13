@@ -1,6 +1,8 @@
 @echo off & setlocal
 set batchPath=%~dp0
+
 set AppName=nvidia_smi_exporter
+set DefaultPort=9202
 
 REM get the version number
 for /f "delims=" %%i in ('git describe --always') do set Version=%%i
@@ -13,10 +15,12 @@ REM .\windows_installer\build.ps1 -PathToExecutable .\nvidia_smi_exporter.exe -V
 
 echo powershell.exe ^
 -file "%batchPath%\windows_installer\build.ps1" ^
--BinDirectory "%batchPath%\bin" -AppName "%AppName%" ^
+-BinDirectory "%batchPath%\bin" ^
+-AppName "%AppName%" -DefaultPort "%DefaultPort%" ^
 -Version "%Version%" -Arch "amd64" -Verbose
 
 powershell.exe ^
 -file "%batchPath%\windows_installer\build.ps1" ^
--BinDirectory "%batchPath%\bin" -AppName "%AppName%" ^
+-BinDirectory "%batchPath%\bin" ^
+-AppName "%AppName%" -DefaultPort "%DefaultPort%" ^
 -Version "%Version%" -Arch "amd64" -Verbose
