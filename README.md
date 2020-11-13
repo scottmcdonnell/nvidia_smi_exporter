@@ -70,6 +70,10 @@ On some older versions of Windows you may need to surround parameter values with
 msiexec /i <path-to-msi-file> LISTEN_PORT="5000"
 ```
 
+for debugging installer issues try:
+
+    msiexec /i nvidia_smi_exporter-0.0.2-amd64.msi /L*V "package.log"
+
 ### Prometheus example config
 
 ```

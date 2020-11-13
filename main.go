@@ -18,11 +18,24 @@ import (
 
 
 var (
+    //set via build with -ldflags "-X main.version=0.0.0"
     version string
-    listenAddress string
-    metricsPath string
 )
 
+//----------- Kingpin FLAGS ----------
+
+var (
+    
+    listenAddress = kingpin.Flag(
+        "telemetry.addr",
+        "host:port for exporter.",
+    ).Default(LISTEN_ADDRESS).String()
+
+    metricsPath = kingpin.Flag(
+        "telemetry.path",
+        "URL Path under which to expose metrics.",
+    ).Default("/metrics").String()
+)
 /**
 //===================================================
 //================ SERVER ===========================
@@ -76,7 +89,7 @@ func index(w http.ResponseWriter, r *http.Request) {
         <p><a href="%s">Metrics</a></p>
         <p><i>Version: %s</i></p>
     </body>
-</html>`, TITLE, metricsPath, version)
+</html>`, TITLE, *metricsPath, version)
 
     outputHtml(w, html)
 }
@@ -151,19 +164,6 @@ loop:
 //===================================================
 */
 func main() {
-
-    //----------- FLAGS ----------
-
-    var (
-        listenAddress = kingpin.Flag(
-            "telemetry.addr",
-            "host:port for exporter.",
-        ).Default(LISTEN_ADDRESS).String()
-        metricsPath = kingpin.Flag(
-            "telemetry.path",
-            "URL Path under which to expose metrics.",
-        ).Default("/metrics").String()
-    )
 
     kingpin.Version(version)
     kingpin.HelpFlag.Short('h')
