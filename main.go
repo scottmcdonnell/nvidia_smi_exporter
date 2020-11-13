@@ -3,14 +3,8 @@
 package main
 
 import (
-    //"io"
-    // "bytes"
-    // "encoding/csv"
     "fmt"
     "net/http"
-    "os"
-    // "os/exec"
-    // "strings"
     "strconv"
 
     "golang.org/x/sys/windows/svc"
@@ -18,22 +12,9 @@ import (
     "github.com/prometheus/common/log"
     "github.com/prometheus/client_golang/prometheus"
     "github.com/prometheus/client_golang/prometheus/promhttp"
+
+    "gopkg.in/alecthomas/kingpin.v2"
 )
-/**
-NVidia System Management Exporter
-https://developer.nvidia.com/nvidia-system-management-interface
-http://developer.download.nvidia.com/compute/DCGM/docs/nvidia-smi-367.38.pdf
-
-@see https://github.com/phstudy/nvidia_smi_exporter
-@see https://github.com/zhebrak/nvidia_smi_exporter
-*/
-
-/**
-//===================================================
-//================ CONSTANTS  =======================
-//===================================================
-*/
-
 
 
 var (
@@ -164,7 +145,6 @@ loop:
     return
 }
 
-
 /**
 //===================================================
 //================ MAIN =============================
@@ -172,13 +152,30 @@ loop:
 */
 func main() {
 
-    listenAddress = os.Getenv("LISTEN_ADDRESS")
-    if (len(listenAddress) == 0) {
-        listenAddress = LISTEN_ADDRESS
-    }
-    metricsPath = METRICS_PATH
+    //----------- FLAGS ----------
 
+    var (
+        listenAddress = kingpin.Flag(
+            "telemetry.addr",
+            "host:port for exporter.",
+        ).Default(LISTEN_ADDRESS).String()
+        metricsPath = kingpin.Flag(
+            "telemetry.path",
+            "URL Path under which to expose metrics.",
+        ).Default("/metrics").String()
+    )
 
+    kingpin.Version(version)
+    kingpin.HelpFlag.Short('h')
+    kingpin.Parse()
+
+    //----------- FLAGS OVERWRITEN BY ENV ----------
+    // listenAddress = os.Getenv("LISTEN_ADDRESS")
+    // if (len(listenAddress) == 0) {
+    //     listenAddress = LISTEN_ADDRESS
+    // }
+
+    // ----------- Service ----------
     isInteractive, err := svc.IsAnInteractiveSession()
     if err != nil {
         log.Fatal(err)
@@ -197,12 +194,12 @@ func main() {
 
     http.HandleFunc("/", index)
     http.HandleFunc("/health", healthCheck)
-    http.HandleFunc(metricsPath, metrics)
+    http.HandleFunc(*metricsPath, metrics)
       
     
     go func() {
-        log.Infoln(TITLE, "listening on", listenAddress)
-        log.Fatalf("cannot start %s: %s", NAME, http.ListenAndServe(listenAddress, nil))
+        log.Infoln(TITLE, "listening on", *listenAddress)
+        log.Fatalf("cannot start %s: %s", NAME, http.ListenAndServe(*listenAddress, nil))
     }()
     for {
         if <-stopCh {

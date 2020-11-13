@@ -11,6 +11,7 @@ import (
     "strings"
     "regexp"
     "os/exec"
+    "math"
     "github.com/prometheus/common/log"
     "github.com/prometheus/client_golang/prometheus"
 )
@@ -35,8 +36,8 @@ const (
     TITLE = "Nvidia SMI Exporter"
     NAME = "nvidia_smi_exporter"
     LISTEN_ADDRESS = ":9202"
-    METRICS_PATH = "/metrics"
-    NVIDIA_SMI_PATH = "/usr/bin/nvidia-smi"
+    NVIDIA_SMI_PATH_LINUX = "/usr/bin/nvidia-smi"
+    NVIDIA_SMI_PATH_WINDOWS = "nvidia-smi"
     SERVICE_NAME = "nvidia_smi_exporter"
 )
 
@@ -47,7 +48,7 @@ const (
 */
 
 var (
-	// Create a gauge to track the GPU utilisation
+    // create our metrics
     driverInfo = prometheus.NewGaugeVec(
         prometheus.GaugeOpts{
             Name:   "nvidia_driver_info",
@@ -55,40 +56,106 @@ var (
         },
         []string{"version"},
     )
-
-    // Create a gauge to track number of GPUs in the machine
     deviceCount = prometheus.NewGauge(
         prometheus.GaugeOpts{
             Name:   "nvidia_device_count",
             Help:   "Number of GPUs in the machine",
         },
     )
-
-    // Create a gauge to track the GPU utilisation
-    utilizationGpu = prometheus.NewGaugeVec(
+    gpuInfo = prometheus.NewGaugeVec(
         prometheus.GaugeOpts{
-            Name:   "nvidia_utilization_gpu",
+            Name:   "nvidia_info",
+            Help:   "GPU device information",
+        },
+        []string{"gpu", "name", "uuid", "vbios"},
+    )
+    gpuFanSpeed = prometheus.NewGaugeVec(
+        prometheus.GaugeOpts{
+            Name:   "nvidia_fanspeed_ratio",
+            Help:   "The fan speed value is the percent of maximum speed from 0 to 1 that the device's fan is currently intended to run at",
+        },
+        []string{"gpu"},
+    )
+    gpuMemory = prometheus.NewGaugeVec(
+        prometheus.GaugeOpts{
+            Name:   "nvidia_memory_bytes",
+            Help:   "FB Memory Usage - On-board frame buffer memory information in bytes.",
+        },
+        []string{"gpu", "state"},
+    )
+    gpuTemperature = prometheus.NewGaugeVec(
+        prometheus.GaugeOpts{
+            Name:   "nvidia_temperature_celsius",
             Help:   "Percent of time over the past sample period during which one or more kernels was executing on the GPU.",
         },
         []string{"gpu"},
     )
+    gpuTemperatureMax = prometheus.NewGaugeVec(
+        prometheus.GaugeOpts{
+            Name:   "nvidia_temperature_max_celsius",
+            Help:   "Maximum temperature in Celsius for the GPU.",
+        },
+        []string{"gpu"},
+    )
+    gpuTemperatureSlow = prometheus.NewGaugeVec(
+        prometheus.GaugeOpts{
+            Name:   "nvidia_temperature_slow_celsius",
+            Help:   "Temperature in Celsius where the GPU will start to slow.",
+        },
+        []string{"gpu"},
+    )
+    gpuPower = prometheus.NewGaugeVec(
+        prometheus.GaugeOpts{
+            Name:   "nvidia_power_watts",
+            Help:   "The last measured power draw for the entire board, in watts",
+        },
+        []string{"gpu"},
+    )
+    gpuPowerLimit = prometheus.NewGaugeVec(
+        prometheus.GaugeOpts{
+            Name:   "nvidia_power_limit_watts",
+            Help:   "The Limit power is set to in watts",
+        },
+        []string{"gpu"},
+    )
 
-
-
-    
-
-    
-
-    
-
-
+    gpuUtilization = prometheus.NewGaugeVec(
+        prometheus.GaugeOpts{
+            Name:   "nvidia_utilization_ratio",
+            Help:   "Utilization rates report how busy each part of the GPU is over the past sample period. each part can be 0-1.",
+        },
+        []string{"gpu", "part"},
+    )
+    gpuClock = prometheus.NewGaugeVec(
+        prometheus.GaugeOpts{
+            Name:   "nvidia_clock_mhz",
+            Help:   "Current frequency at which parts of the GPU are running. All readings are in MHz.",
+        },
+        []string{"gpu", "part"},
+    )
+    gpuClockMax = prometheus.NewGaugeVec(
+        prometheus.GaugeOpts{
+            Name:   "nvidia_clock_max_mhz",
+            Help:   "Maximum frequency at which parts of the GPU are design to run. Al readings are in MHz.",
+        },
+        []string{"gpu", "part"},
+    )
 )
 
 func init() {
     // Register the summary and the histogram with Prometheus's default registry.
     prometheus.MustRegister(driverInfo)
     prometheus.MustRegister(deviceCount)
-    prometheus.MustRegister(utilizationGpu)
+    prometheus.MustRegister(gpuFanSpeed)
+    prometheus.MustRegister(gpuMemory)
+    prometheus.MustRegister(gpuTemperature)
+    prometheus.MustRegister(gpuTemperatureMax)
+    prometheus.MustRegister(gpuTemperatureSlow)
+    prometheus.MustRegister(gpuPower)
+    prometheus.MustRegister(gpuPowerLimit)
+    prometheus.MustRegister(gpuUtilization)
+    prometheus.MustRegister(gpuClock)
+    prometheus.MustRegister(gpuClockMax)
 
     // Add Go module build info.
     prometheus.MustRegister(prometheus.NewBuildInfoCollector())
@@ -108,9 +175,9 @@ func metricsUpdate() {
 
 func metricsXml() {
 
-	//look at different paths this may be discoverable at
-	//windows it is in System32
-	nvidiaSmiPath := "nvidia-smi"
+    //look at different paths this may be discoverable at
+    //windows it is in System32
+    nvidiaSmiPath := "nvidia-smi"
 
     cmd := exec.Command(nvidiaSmiPath, "-q", "-x")
 
@@ -128,13 +195,53 @@ func metricsXml() {
     driverInfo.With(prometheus.Labels{"version": xmlData.DriverVersion}).Set(1)
     deviceCount.Set(filterNumber(xmlData.AttachedGPUs))
 
+    // for each GPU
+    for i, GPU := range xmlData.GPUs {
+        var idx = strconv.Itoa(i)
+
+        gpuInfo.With(prometheus.Labels{"gpu": idx, "name": GPU.ProductName, "uuid": GPU.UUID, "vbios": GPU.VBiosVersion}).Set(1)
+        gpuFanSpeed.With(prometheus.Labels{"gpu": idx}).Set(filterNumber(GPU.FanSpeed)/100)
+
+        gpuMemory.With(prometheus.Labels{"gpu": idx, "state": "used"}).Set(megabytesToBytes(filterNumber(GPU.FbMemoryUsage.Used)))
+        gpuMemory.With(prometheus.Labels{"gpu": idx, "state": "free"}).Set(megabytesToBytes(filterNumber(GPU.FbMemoryUsage.Free)))
+
+        gpuTemperature.With(prometheus.Labels{"gpu": idx}).Set(filterNumber(GPU.Temperature.GPUTemp))
+        gpuTemperatureMax.With(prometheus.Labels{"gpu": idx}).Set(filterNumber(GPU.Temperature.GPUTempMaxThreshold))
+        gpuTemperatureSlow.With(prometheus.Labels{"gpu": idx}).Set(filterNumber(GPU.Temperature.GPUTempSlowThreshold))
+
+        gpuPower.With(prometheus.Labels{"gpu": idx}).Set(filterNumber(GPU.PowerReadings.PowerDraw))
+        gpuPowerLimit.With(prometheus.Labels{"gpu": idx}).Set(filterNumber(GPU.PowerReadings.PowerLimit))
+
+        gpuUtilization.With(prometheus.Labels{"gpu": idx, "part": "gpu"}).Set(filterNumber(GPU.Utilization.GPUUtil)/100)
+        gpuUtilization.With(prometheus.Labels{"gpu": idx, "part": "memory"}).Set(filterNumber(GPU.Utilization.MemoryUtil)/100)
+        gpuUtilization.With(prometheus.Labels{"gpu": idx, "part": "encoder"}).Set(filterNumber(GPU.Utilization.EncoderUtil)/100)
+        gpuUtilization.With(prometheus.Labels{"gpu": idx, "part": "decoder"}).Set(filterNumber(GPU.Utilization.DecoderUtil)/100)
+
+        gpuClock.With(prometheus.Labels{"gpu": idx, "part": "graphics"}).Set(filterNumber(GPU.Clocks.GraphicsClock))
+        gpuClock.With(prometheus.Labels{"gpu": idx, "part": "sm"}).Set(filterNumber(GPU.Clocks.SmClock))
+        gpuClock.With(prometheus.Labels{"gpu": idx, "part": "memory"}).Set(filterNumber(GPU.Clocks.MemClock))
+        gpuClock.With(prometheus.Labels{"gpu": idx, "part": "video"}).Set(filterNumber(GPU.Clocks.VideoClock))
+
+        gpuClockMax.With(prometheus.Labels{"gpu": idx, "part": "graphics"}).Set(filterNumber(GPU.MaxClocks.GraphicsClock))
+        gpuClockMax.With(prometheus.Labels{"gpu": idx, "part": "sm"}).Set(filterNumber(GPU.MaxClocks.SmClock))
+        gpuClockMax.With(prometheus.Labels{"gpu": idx, "part": "memory"}).Set(filterNumber(GPU.MaxClocks.MemClock))
+        gpuClockMax.With(prometheus.Labels{"gpu": idx, "part": "video"}).Set(filterNumber(GPU.MaxClocks.VideoClock))
+
+    }
+}
+
+func megabytesToBytes(mb float64) float64 {
+    return math.Round(mb * 1048576)
+}
+
+func mHzToHz(mHz int) float64 {
+    return float64(mHz) * 1000 * 1000
 }
 
 /**
 * get metrics based on csv
 / name, index, temperature.gpu, utilization.gpu, utilization.memory, memory.total, memory.free, memory.used
 //nvidia-smi --query-gpu=name,index,temperature.gpu,utilization.gpu,utilization.memory,memory.total,memory.free,memory.used --format=csv,noheader,nounits
-
 */
 func metricsCsv() string {
     out, err := exec.Command(
@@ -185,6 +292,7 @@ type NvidiaSmiLog struct {
     GPUs []struct {
         ProductName string `xml:"product_name"`
         ProductBrand string `xml:"product_brand"`
+        VBiosVersion string `xml:"vbios_version"`
         UUID string `xml:"uuid"`
         FanSpeed string `xml:"fan_speed"`
         PCI struct {
@@ -198,6 +306,8 @@ type NvidiaSmiLog struct {
         Utilization struct {
             GPUUtil string `xml:"gpu_util"`
             MemoryUtil string `xml:"memory_util"`
+            EncoderUtil string `xml:"encoder_util"`
+            DecoderUtil string `xml:"decoder_util"`
         } `xml:"utilization"`
         Temperature struct {
             GPUTemp string `xml:"gpu_temp"`
@@ -220,6 +330,16 @@ type NvidiaSmiLog struct {
             MemClock string `xml:"mem_clock"`
             VideoClock string `xml:"video_clock"`
         } `xml:"max_clocks"`
+        Processes []struct {
+            ProcessInfo struct {
+                ProcessName string `xml:"process_name"`
+                UsedMemory string `xml:"used_memory"`
+                Type string `xml:"type"`
+                PID string `xml:"pid"`
+                GPUInstanceId string `xml:"gpu_instance_id"`
+                ComputeInstanceId string `xml:"compute_instance_id"`
+            } `xml:"process_info"`
+        } `xml:"processes"`
     } `xml:"gpu"`
 }
 
