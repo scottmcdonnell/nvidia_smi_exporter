@@ -6,6 +6,7 @@ import (
     "fmt"
     "net/http"
     "strconv"
+    "os"
 
     "golang.org/x/sys/windows/svc"
 
@@ -25,7 +26,11 @@ var (
 //----------- Kingpin FLAGS ----------
 
 var (
-    
+    commandaAppPath = kingpin.Flag(
+        "command.name",
+        "Full Path to command line application",
+    ).Default(DEFAULT_APP_PATH).String()
+
     listenAddress = kingpin.Flag(
         "telemetry.addr",
         "host:port for exporter.",
@@ -36,6 +41,34 @@ var (
         "URL Path under which to expose metrics.",
     ).Default("/metrics").String()
 )
+
+/**
+//===================================================
+//================ Command line app =================
+//===================================================
+*/
+func getAppPath(paths []string, defaultPath string) string {
+
+    for _, filename := range paths {
+        fmt.Println(filename)
+        if fileExists(filename) {
+            return filename
+        }
+    }
+    return defaultPath
+}
+
+// https://stackoverflow.com/questions/12518876/how-to-check-if-a-file-exists-in-go
+func fileExists(filename string) bool {
+    info, err := os.Stat(filename)
+    if os.IsNotExist(err) {
+        return false
+    }
+    return !info.IsDir()
+}
+
+
+
 /**
 //===================================================
 //================ SERVER ===========================

@@ -2,7 +2,6 @@ package main
 
 
 import (
-
     "fmt"
     "strconv"
     "encoding/csv"
@@ -39,7 +38,16 @@ const (
     NVIDIA_SMI_PATH_LINUX = "/usr/bin/nvidia-smi"
     NVIDIA_SMI_PATH_WINDOWS = "nvidia-smi"
     SERVICE_NAME = "nvidia_smi_exporter"
+    
+    
+    DEFAULT_APP_PATH = "nvidia-smi"
 )
+var APP_PATHS = []string {
+    "C:\\Program Files\\NVIDIA Corporation\\NVSMI\\nvidia-smi.exe",
+    "C:\\Windows\\System32\\nvidia-smi.exe",
+    "C:\\Windows\\System32\\DriverStore\\FileRepository\\nvdm*\\nvidia-smi.exe",
+    "/usr/bin/nvidia-smi",
+}
 
 /**
 //===================================================
@@ -147,6 +155,7 @@ func init() {
     prometheus.MustRegister(driverInfo)
     prometheus.MustRegister(deviceCount)
     prometheus.MustRegister(gpuFanSpeed)
+    prometheus.MustRegister(gpuInfo)
     prometheus.MustRegister(gpuMemory)
     prometheus.MustRegister(gpuTemperature)
     prometheus.MustRegister(gpuTemperatureMax)
@@ -177,8 +186,16 @@ func metricsXml() {
 
     //look at different paths this may be discoverable at
     //windows it is in System32
-    nvidiaSmiPath := "nvidia-smi"
+    nvidiaSmiPath := getAppPath(APP_PATHS, DEFAULT_APP_PATH)
 
+    //can be overwritten with a flag
+    if *commandaAppPath != "" {
+        nvidiaSmiPath = *commandaAppPath
+    }
+
+    // log.Debugf("nvidiaSmiPath", nvidiaSmiPath)
+
+    // create our command
     cmd := exec.Command(nvidiaSmiPath, "-q", "-x")
 
     // Execute system command
@@ -238,14 +255,18 @@ func mHzToHz(mHz int) float64 {
     return float64(mHz) * 1000 * 1000
 }
 
+
 /**
 * get metrics based on csv
 / name, index, temperature.gpu, utilization.gpu, utilization.memory, memory.total, memory.free, memory.used
 //nvidia-smi --query-gpu=name,index,temperature.gpu,utilization.gpu,utilization.memory,memory.total,memory.free,memory.used --format=csv,noheader,nounits
 */
 func metricsCsv() string {
+
+    appPath := getAppPath(APP_PATHS, DEFAULT_APP_PATH)
+ 
     out, err := exec.Command(
-        "nvidia-smi",
+        appPath,
         "--query-gpu=name,index,temperature.gpu,utilization.gpu,utilization.memory,memory.total,memory.free,memory.used",
         "--format=csv,noheader,nounits").Output()
 
