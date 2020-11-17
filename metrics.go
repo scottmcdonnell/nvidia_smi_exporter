@@ -56,7 +56,14 @@ var COMMAND_APP_PATHS = []string {
 */
 
 var (
-    // create our metrics
+    // create our metrics  
+    exporterInfo = prometheus.NewGaugeVec(
+        prometheus.GaugeOpts{
+            Name:   "nvidia_smi_exporter_build_info",
+            Help:   "Exporter build information",
+        },
+        []string{"version"},
+    )
     collectorSuccess = prometheus.NewGauge(
         prometheus.GaugeOpts{
             Name:   "nvidia_smi_collector_success",
@@ -158,6 +165,7 @@ var (
 
 func init() {
     // Register all metrics.
+    prometheus.MustRegister(exporterInfo)
     prometheus.MustRegister(collectorSuccess)
     prometheus.MustRegister(driverInfo)
     prometheus.MustRegister(deviceCount)
@@ -190,14 +198,16 @@ func metricsUpdate() {
 
 
 func metricsXml() {
+    //set the version from the current git label
+    exporterInfo.With(prometheus.Labels{"version": version}).Set(1)
+    
+    //make sure its 0 until the end of this method
     collectorSuccess.Set(0)
 
     //get the set commandaAppPath
     command := *commandAppPath
     flags := *commandFlags
     f := strings.Split(flags, " ")
-
-    
 
     // create our command - unpack the array of flags
     cmd := exec.Command(command, f...)
