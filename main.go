@@ -6,7 +6,9 @@ import (
     "fmt"
     "net/http"
     "strconv"
+    //"path/filepath"
     "os"
+    "os/exec"
 
     "golang.org/x/sys/windows/svc"
 
@@ -21,15 +23,24 @@ import (
 var (
     //set via build with -ldflags "-X main.version=0.0.0"
     version string
+
+    //search a list of paths to find the command line tool.
+    //this can be overwritten with --command.name flag
+    defaultAppPath = getAppPath(COMMAND_APP_PATHS, COMMAND_APP)
 )
 
 //----------- Kingpin FLAGS ----------
 
 var (
-    commandaAppPath = kingpin.Flag(
+    commandAppPath = kingpin.Flag(
         "command.name",
-        "Full Path to command line application",
-    ).Default(DEFAULT_APP_PATH).String()
+        "Command line application name or full Path to command line application",
+    ).Default(defaultAppPath).String()
+    //).Default(getAppPath(COMMAND_APP_PATHS, COMMAND_APP)).String()
+    commandFlags = kingpin.Flag(
+        "command.flags",
+        "Command line flags for the command app",
+    ).Default(COMMAND_FLAGS).String()
 
     listenAddress = kingpin.Flag(
         "telemetry.addr",
@@ -50,7 +61,10 @@ var (
 func getAppPath(paths []string, defaultPath string) string {
 
     for _, filename := range paths {
-        fmt.Println(filename)
+        // filenames, _ := filepath.Glob(filename)
+        // if len(filenames) < 1 {
+        //     return defaultPath
+        // }
         if fileExists(filename) {
             return filename
         }
@@ -67,7 +81,16 @@ func fileExists(filename string) bool {
     return !info.IsDir()
 }
 
+func isCommandAvailable(name string) bool {
+    log.Debugf(name, "-h") 
+    cmd := exec.Command(name, "-h")
 
+    if err := cmd.Run(); err != nil {
+        log.Debugf(name, "-h", err) 
+        return false
+    }
+    return true
+}
 
 /**
 //===================================================
@@ -121,8 +144,9 @@ func index(w http.ResponseWriter, r *http.Request) {
         <h1>Nvidia SMI Exporter</h1>
         <p><a href="%s">Metrics</a></p>
         <p><i>Version: %s</i></p>
+        <p><i>Command: %s %s</i></p>
     </body>
-</html>`, TITLE, *metricsPath, version)
+</html>`, TITLE, *metricsPath, version, *commandAppPath, *commandFlags)
 
     outputHtml(w, html)
 }
@@ -202,7 +226,12 @@ func main() {
     kingpin.HelpFlag.Short('h')
     kingpin.Parse()
 
-    //----------- FLAGS OVERWRITEN BY ENV ----------
+    //Check the command is available
+    if !isCommandAvailable(*commandAppPath) {
+        log.Fatalf("cannot start %s - Command not available: %s", NAME, *commandAppPath)
+    }
+    
+    //----------- Consider FLAGS OVERWRITEN BY ENV ----------
     // listenAddress = os.Getenv("LISTEN_ADDRESS")
     // if (len(listenAddress) == 0) {
     //     listenAddress = LISTEN_ADDRESS

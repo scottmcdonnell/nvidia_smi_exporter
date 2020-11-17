@@ -5,9 +5,16 @@ set AppName=nvidia_smi_exporter
 set DefaultPort=9202
 
 REM get the version number
+set Version=%1
+if NOT [%~1]==[] goto :done
 for /f "delims=" %%i in ('git describe --always') do set Version=%%i
+
+:done
+
+del "%batchPath%\bin\%AppName%.exe"
 echo "APP: %AppName% Version: %Version%"
 echo "building go application..."
+echo go build -v -ldflags "-X main.version=%Version%" -o "bin/%AppName%.exe" . 
 go build -v -ldflags "-X main.version=%Version%" -o "bin/%AppName%.exe" . 
 
 echo "building installer/Output/%AppName%.msi..."

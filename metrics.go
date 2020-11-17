@@ -38,14 +38,14 @@ const (
     NVIDIA_SMI_PATH_LINUX = "/usr/bin/nvidia-smi"
     NVIDIA_SMI_PATH_WINDOWS = "nvidia-smi"
     SERVICE_NAME = "nvidia_smi_exporter"
-    
-    
-    DEFAULT_APP_PATH = "nvidia-smi"
+
+    COMMAND_APP = "nvidia-smi"
+    COMMAND_FLAGS = "-q -x"
 )
-var APP_PATHS = []string {
+var COMMAND_APP_PATHS = []string {
     "C:\\Program Files\\NVIDIA Corporation\\NVSMI\\nvidia-smi.exe",
     "C:\\Windows\\System32\\nvidia-smi.exe",
-    "C:\\Windows\\System32\\DriverStore\\FileRepository\\nvdm*\\nvidia-smi.exe",
+    //"C:\\Windows\\System32\\DriverStore\\FileRepository\\nvdm*\\nvidia-smi.exe",
     "/usr/bin/nvidia-smi",
 }
 
@@ -57,6 +57,12 @@ var APP_PATHS = []string {
 
 var (
     // create our metrics
+    collectorSuccess = prometheus.NewGauge(
+        prometheus.GaugeOpts{
+            Name:   "nvidia_smi_collector_success",
+            Help:   "nvidia_smi_exporter: Whether the collector was successful.",
+        },
+    )
     driverInfo = prometheus.NewGaugeVec(
         prometheus.GaugeOpts{
             Name:   "nvidia_driver_info",
@@ -151,7 +157,8 @@ var (
 )
 
 func init() {
-    // Register the summary and the histogram with Prometheus's default registry.
+    // Register all metrics.
+    prometheus.MustRegister(collectorSuccess)
     prometheus.MustRegister(driverInfo)
     prometheus.MustRegister(deviceCount)
     prometheus.MustRegister(gpuFanSpeed)
@@ -183,20 +190,19 @@ func metricsUpdate() {
 
 
 func metricsXml() {
+    collectorSuccess.Set(0)
 
-    //look at different paths this may be discoverable at
-    //windows it is in System32
-    nvidiaSmiPath := getAppPath(APP_PATHS, DEFAULT_APP_PATH)
+    //get the set commandaAppPath
+    command := *commandAppPath
+    flags := *commandFlags
+    f := strings.Split(flags, " ")
 
-    //can be overwritten with a flag
-    if *commandaAppPath != "" {
-        nvidiaSmiPath = *commandaAppPath
-    }
+    
 
-    // log.Debugf("nvidiaSmiPath", nvidiaSmiPath)
-
-    // create our command
-    cmd := exec.Command(nvidiaSmiPath, "-q", "-x")
+    // create our command - unpack the array of flags
+    cmd := exec.Command(command, f...)
+    // log.Debugf("command:", cmd.String())
+    log.Infoln("command:", cmd.String())
 
     // Execute system command
     stdout, err := cmd.Output()
@@ -208,6 +214,13 @@ func metricsXml() {
     // Parse XML
     var xmlData NvidiaSmiLog
     xml.Unmarshal(stdout, &xmlData)
+
+    // SANITY CHECK results
+    if xmlData.DriverVersion =="" {
+        log.Errorln("Nvidia DriverVersion not parsed correctly")
+        return
+    }
+
 
     driverInfo.With(prometheus.Labels{"version": xmlData.DriverVersion}).Set(1)
     deviceCount.Set(filterNumber(xmlData.AttachedGPUs))
@@ -245,6 +258,7 @@ func metricsXml() {
         gpuClockMax.With(prometheus.Labels{"gpu": idx, "part": "video"}).Set(filterNumber(GPU.MaxClocks.VideoClock))
 
     }
+    collectorSuccess.Set(1)
 }
 
 func megabytesToBytes(mb float64) float64 {
@@ -263,10 +277,10 @@ func mHzToHz(mHz int) float64 {
 */
 func metricsCsv() string {
 
-    appPath := getAppPath(APP_PATHS, DEFAULT_APP_PATH)
+    nvidiaSmiPath := *commandAppPath
  
     out, err := exec.Command(
-        appPath,
+        nvidiaSmiPath,
         "--query-gpu=name,index,temperature.gpu,utilization.gpu,utilization.memory,memory.total,memory.free,memory.used",
         "--format=csv,noheader,nounits").Output()
 

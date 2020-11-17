@@ -22,6 +22,13 @@
 
     <Property Id="METRICS_PATH" Secure="yes"/>
     <SetProperty Id="MetricsPathFlag" After="InstallFiles" Sequence="execute" Value="--telemetry.path [METRICS_PATH]">METRICS_PATH</SetProperty>
+    <Property Id="COMMAND_NAME" Secure="yes"/>
+    <SetProperty Id="CommandName" After="InstallFiles" Sequence="execute" Value="--command.name [COMMAND_NAME]">COMMAND_NAME</SetProperty>
+    <Property Id="COMMAND_FLAGS" Secure="yes"/>
+    <SetProperty Id="CommandFlags" After="InstallFiles" Sequence="execute" Value="--command.flags [COMMAND_FLAGS]">COMMAND_FLAGS</SetProperty>
+    <Property Id="REMOTE_ADDR" Secure="yes" />
+    <SetProperty Id="RemoteAddressFlag" After="InstallFiles" Sequence="execute" Value="[REMOTE_ADDR]">REMOTE_ADDR</SetProperty> 
+
 
     <Directory Id="TARGETDIR" Name="SourceDir">
       <Directory Id="$(var.PlatformProgramFiles)">
@@ -32,7 +39,9 @@
     <ComponentGroup Id="Files">
       <Component Directory="APPLICATIONROOTDIRECTORY">
         <File Id="$(var.AppName).exe" Name="$(var.AppName).exe" Source="Work\$(var.AppName).exe" KeyPath="yes">
-          <fw:FirewallException Id="MetricsEndpoint" Name="$(var.AppName) (HTTP [LISTEN_PORT])" Description="$(var.AppName) HTTP endpoint" Port="[LISTEN_PORT]" Protocol="tcp" Scope="any" IgnoreFailure="yes" />
+          <fw:FirewallException Id="MetricsEndpoint" Name="$(var.AppName) (HTTP [LISTEN_PORT])" Description="$(var.AppName) HTTP endpoint" Port="[LISTEN_PORT]" Protocol="tcp" IgnoreFailure="yes" >
+            <fw:RemoteAddress>[REMOTE_ADDR]</fw:RemoteAddress>
+          </fw:FirewallException> 
         </File>
         <ServiceInstall Id="InstallExporterService" Name="$(var.AppName)" DisplayName="$(var.AppName)" Description="Exports Prometheus metrics for $(var.AppName)" ErrorControl="normal" Start="auto" Type="ownProcess" >
           <util:ServiceConfig FirstFailureActionType="restart" SecondFailureActionType="restart" ThirdFailureActionType="restart" RestartServiceDelayInSeconds="60" />

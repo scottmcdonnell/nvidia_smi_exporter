@@ -46,6 +46,10 @@ Build the service for Windows:
 
     build.bat
 
+or specify a version number:
+
+    build.bat 0.0.0
+
 This creates an .msi installer in the folder `bin`
 
 The installer will setup the nvidia_smi_exporter as a Windows service, as well as create an exception in the Windows Firewall.
@@ -58,6 +62,8 @@ Name | Description
 `LISTEN_PORT` | The port to bind to. Defaults to 9182.
 `METRICS_PATH` | The path at which to serve metrics. Defaults to `/metrics`
 `REMOTE_ADDR` | Allows setting comma separated remote IP addresses for the Windows Firewall exception (whitelist). Defaults to an empty string (any remote address).
+`COMMAND_NAME` | Name of command to execute. Defaults to `nvidia-smi`
+`COMMAND_FLAGS` | Flags for command to execute. Defaults to `-q -x` for query in XML.
 
 Parameters are sent to the installer via `msiexec`. Example invocations:
 
@@ -69,6 +75,19 @@ On some older versions of Windows you may need to surround parameter values with
 ```powershell
 msiexec /i <path-to-msi-file> LISTEN_PORT="5000"
 ```
+
+The nvidia-smi executable is looked for in the following locations:
+
+    "C:\\Program Files\\NVIDIA Corporation\\NVSMI\\nvidia-smi.exe"
+    "C:\\Windows\\System32\\nvidia-smi.exe"
+    "/usr/bin/nvidia-smi"
+
+If the nvidia-smi executable is at a different location then use the COMMAND_NAME flag below to send the full path to the location eg. 
+
+```powershell
+msiexec /i nvidia_smi_exporter-0.0.4-amd64.msi COMMAND_NAME="C:\Windows\System32\nvidia-smi.exe"
+```
+
 
 for debugging installer issues try:
 
